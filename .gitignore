@@ -1,0 +1,7 @@
+.vs/
+bin/*.exe
+bin/secapp
+obj/
+*.ilk
+*.dmp
+

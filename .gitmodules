@@ -1,0 +1,3 @@
+[submodule "seclib"]
+	path = seclib
+	url = git@github.com:SoftEtherVPN/seclib.git
