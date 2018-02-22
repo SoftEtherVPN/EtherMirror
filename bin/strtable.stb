@@ -7182,8 +7182,9 @@ EMLOG_CONFIG_LOADING		Loading the config file...
 EMLOG_CONFIG_LOAD_ERROR		Error: Loading the config failed.
 EMLOG_CONFIG_LOAD_OK		Config loaded.
 
-EMLOG_ETH_OPEN_ERROR		OpenEth Error for "%s"
-EMLOG_ETH_GET_ERROR			EthGetPacket Error for "%s"
+EMLOG_ETH_OPEN_ERROR		OpenEth Error for "%S"
+EMLOG_ETH_GET_ERROR			EthGetPacket Error for "%S"
+EMLOG_ETH_PUT_ERROR			EthPutPacket Error for "%S"
 
 
 

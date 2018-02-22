@@ -3,6 +3,8 @@
 #define EM_LOGPREFIX			"em"
 #define EM_CONFIG_FN			"@EtherMirror.config"
 
+#define EM_MAX_QUEUE_SIZE		10000
+
 
 // Types
 
@@ -26,6 +28,9 @@ struct EM
 	THREAD *RecvThread;
 	THREAD *SendThread;
 	bool Halt;
+	QUEUE *SendQueue;
+	LOCK *Lock;
+	CANCEL *SendCancel;
 };
 
 // Functions
@@ -35,8 +40,10 @@ void EmLog(EM *m, char *name, ...);
 EM_CONFIG *EmLoadConfig(char *fn);
 void EmFreeConfig(EM_CONFIG *c);
 
+
 void EmRecvThread(THREAD *thread, void *param);
 void EmSendThread(THREAD *thread, void *param);
+PKT *EmParsePacket(EM *m, UCHAR *data, UINT size);
 
 
 

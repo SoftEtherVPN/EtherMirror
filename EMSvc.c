@@ -31,7 +31,7 @@ void EmRecvThread(THREAD *thread, void *param)
 	{
 		if (eth == NULL)
 		{
-			eth = OpenEth(m->Config->InputIf, false, false, NULL);
+			eth = OpenEth(if_name, false, false, NULL);
 			if (eth == NULL)
 			{
 				// open failed
@@ -64,6 +64,7 @@ void EmRecvThread(THREAD *thread, void *param)
 
 					CloseEth(eth);
 					eth = NULL;
+					num_open_fail = 0;
 
 					ReleaseCancel(cancel);
 					cancel = NULL;
@@ -78,20 +79,50 @@ void EmRecvThread(THREAD *thread, void *param)
 				}
 				else
 				{
-					// Packet received. Insert to the queue.
-					if (q == NULL)
-					{
-						q = NewQueueFast();
-					}
+					// Packet received. Check it.
+					PKT *pkt = EmParsePacket(m, data, size);
 
-					Debug("%u\n", size);
-					InsertQueue(q, data);
-					Free(data);
+					if (pkt != NULL)
+					{
+						// Insert to the queue.
+						if (q == NULL)
+						{
+							q = NewQueueFast();
+						}
+
+//						Debug("%u\n", size);
+						if (q->num_item < EM_MAX_QUEUE_SIZE)
+						{
+							InsertQueue(q, pkt);
+						}
+						else
+						{
+							FreePacketWithData(pkt);
+						}
+					}
 				}
 			}
 
 			if (q != NULL)
 			{
+				LockQueue(m->SendQueue);
+				{
+					PKT *pkt;
+
+					while (pkt = GetNext(q))
+					{
+						if (m->SendQueue->num_item < EM_MAX_QUEUE_SIZE)
+						{
+							InsertQueue(m->SendQueue, pkt);
+						}
+						else
+						{
+							FreePacketWithData(pkt);
+						}
+					}
+				}
+				UnlockQueue(m->SendQueue);
+
 				ReleaseQueue(q);
 			}
 		}
@@ -101,20 +132,97 @@ void EmRecvThread(THREAD *thread, void *param)
 	ReleaseCancel(cancel);
 }
 
+// check the received packet
+PKT *EmParsePacket(EM *m, UCHAR *data, UINT size)
+{
+	PKT *p = NULL;
+	if (m == NULL || data == NULL || size == 0)
+	{
+		return false;
+	}
+
+	p = ParsePacket(data, size);
+
+	// Check the source MAC address
+	if (Cmp(p->MacAddressSrc, m->Config->OutputMac, 6) == 0)
+	{
+		goto LABEL_ERROR;
+	}
+
+	if (p->TypeL3 != L3_IPV4)
+	{
+		goto LABEL_ERROR;
+	}
+
+	return p;
+
+LABEL_ERROR:
+	FreePacketWithData(p);
+	return NULL;
+}
+
 // Send Thread
 void EmSendThread(THREAD *thread, void *param)
 {
 	EM *m;
+	ETH *eth = NULL;
+	UINT num_open_fail = 0;
+	char if_name[MAX_SIZE];
+	QUEUE *q;
 	if (thread == NULL || param == NULL)
 	{
 		return;
 	}
-
 	m = (EM *)param;
+
+	StrCpy(if_name, sizeof(if_name), m->Config->OutputIf);
 
 	while (m->Halt == false)
 	{
+		if (eth == NULL)
+		{
+			eth = OpenEth(if_name, false, false, NULL);
+			if (eth == NULL)
+			{
+				// open failed
+				if (num_open_fail == 0)
+				{
+					EmLog(m, "EMLOG_ETH_OPEN_ERROR", if_name);
+				}
+				num_open_fail++;
+				SleepThread(200);
+			}
+			else
+			{
+				// open ok
+				Lock(m->Lock);
+				{
+					m->SendCancel = EthGetCancel(eth);
+				}
+				Unlock(m->Lock);
+			}
+		}
+
+		if (eth != NULL)
+		{
+			QUEUE *q = NewQueueFast();
+
+			LockQueue(m->SendQueue);
+			{
+				PKT *pkt;
+				while (pkt = GetNext(m->SendQueue))
+				{
+					InsertQueue(q, pkt);
+				}
+			}
+			UnlockQueue(m->SendQueue);
+
+			ReleaseQueue(q);
+		}
 	}
+
+	CloseEth(eth);
+	ReleaseCancel(m->SendCancel);
 }
 
 // Free the config
@@ -209,6 +317,7 @@ LABEL_ERROR:
 // Stop and free the EM instance
 void FreeEm(EM *m)
 {
+	PKT *pkt;
 	if (m == NULL)
 	{
 		return;
@@ -227,6 +336,15 @@ void FreeEm(EM *m)
 	EmLog(m, "EMLOG_STOP");
 	FreeLog(m->Log);
 
+	while (pkt = GetNext(m->SendQueue))
+	{
+		FreePacketWithData(pkt);
+	}
+
+	ReleaseQueue(m->SendQueue);
+
+	DeleteLock(m->Lock);
+
 	Free(m);
 }
 
@@ -234,6 +352,10 @@ void FreeEm(EM *m)
 EM *NewEm()
 {
 	EM *m = ZeroMalloc(sizeof(EM));
+
+	m->SendQueue = NewQueue();
+
+	m->Lock = NewLock();
 
 	// Logger
 	m->Log = NewLog(EM_LOGDIR, EM_LOGPREFIX, LOG_SWITCH_DAY);
