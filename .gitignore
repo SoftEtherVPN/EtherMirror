@@ -1,6 +1,7 @@
 .vs/
 bin/*.exe
-bin/secapp
+bin/ethermirror
+bin/em_log/
 obj/
 *.ilk
 *.dmp

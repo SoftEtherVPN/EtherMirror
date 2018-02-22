@@ -10,12 +10,17 @@
 #include <seclib.h>
 #include "project.h"
 
+static EM *em = NULL;
 
 // Process starting function
 void StartProcess()
 {
 	// Start the server
 	Debug("StartProcess() Begin.\n");
+
+	InitEth();
+
+	em = NewEm();
 
 	Debug("StartProcess() End.\n");
 }
@@ -25,6 +30,14 @@ void StopProcess()
 {
 	// Stop the server
 	Debug("StopProcess() Begin.\n");
+
+	if (em != NULL)
+	{
+		FreeEm(em);
+		em = NULL;
+	}
+
+	FreeEth();
 
 	Debug("StopProcess() End.\n");
 }
@@ -203,7 +216,8 @@ int main(int argc, char *argv[])
 		InitCedar();
 		SetHamMode();
 
-		TestMain(cmdline);
+		//TestMain(cmdline);
+		service_test(0, NULL);
 
 		FreeCedar();
 		FreeMayaqua();
@@ -212,9 +226,9 @@ int main(int argc, char *argv[])
 	{
 		// Service mode
 #ifdef OS_WIN32
-		return MsService("SECAPP", StartProcess, StopProcess, 0, argv[1]);
+		return MsService("ETHERMIRROR", StartProcess, StopProcess, 0, argv[1]);
 #else // OS_WIN32
-		return UnixService(argc, argv, "secapp", StartProcess, StopProcess);
+		return UnixService(argc, argv, "ethermirror", StartProcess, StopProcess);
 #endif // OS_WIN32
 
 	}

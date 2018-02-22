@@ -27,10 +27,13 @@
     <ClCompile Include="seclib\seclib_src\srclib_win32.cpp">
       <Filter>Source Files\seclib</Filter>
     </ClCompile>
-    <ClCompile Include="secapp.c">
+    <ClCompile Include="EtherMirror.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="temp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="EMSvc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -41,13 +44,16 @@
     <ClInclude Include="project.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="secapp.h">
+    <ClInclude Include="EtherMirror.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="project_types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="temp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EMSvc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

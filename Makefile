@@ -28,7 +28,7 @@ OBJS=$(addprefix obj/obj/linux/,$(patsubst %.c,%.o,$(SRCS)))
 # Build Action
 default:	build
 
-build:	$(OBJECTS_SECLIB) bin/secapp
+build:	$(OBJECTS_SECLIB) bin/ethermirror
 
 obj/obj/linux/seclib.o: seclib/seclib_src/seclib.c $(HEADERS_SECLIB)
 	@mkdir -p obj/obj/linux/
@@ -38,12 +38,12 @@ obj/obj/linux/seclib.o: seclib/seclib_src/seclib.c $(HEADERS_SECLIB)
 obj/obj/linux/%.o: %.c
 	$(CC) $(OPTIONS_COMPILE) -c $< -o $@
 
-bin/secapp: obj/obj/linux/seclib.o $(HEADERS_SECLIB) $(OBJECTS_SECLIB) $(OBJS)
-	$(CC) obj/obj/linux/seclib.o $(OBJS) $(OPTIONS_LINK) -o bin/secapp
+bin/ethermirror: obj/obj/linux/seclib.o $(HEADERS_SECLIB) $(OBJECTS_SECLIB) $(OBJS)
+	$(CC) obj/obj/linux/seclib.o $(OBJS) $(OPTIONS_LINK) -o bin/ethermirror
 
 clean:
 	-rm -f obj/obj/linux/*.o
-	-rm -f bin/secapp
+	-rm -f bin/ethermirror
 
 help:
 	@echo "make [DEBUG=YES]"

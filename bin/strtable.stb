@@ -7172,8 +7172,18 @@ SW_LINK_NAME_DEBUG_COMMENT					Collects debugging information of SoftEther VPN. 
 
 
 # Service definition (SoftEther VPN Client)
-SVC_SECAPP_NAME		SECAPP
-SVC_SECAPP_TITLE	SECAPP Test Service
-SVC_SECAPP_DESCRIPT	This is the SECAPP Test Service.
+SVC_ETHERMIRROR_NAME		EtherMirror
+SVC_ETHERMIRROR_TITLE		EtherMirror Service
+SVC_ETHERMIRROR_DESCRIPT	This is the EtherMirror service.
+
+EMLOG_START					--- EtherMirror Start ---
+EMLOG_STOP					--- EtherMirror Stop ---
+EMLOG_CONFIG_LOADING		Loading the config file...
+EMLOG_CONFIG_LOAD_ERROR		Error: Loading the config failed.
+EMLOG_CONFIG_LOAD_OK		Config loaded.
+
+EMLOG_ETH_OPEN_ERROR		OpenEth Error for "%s"
+EMLOG_ETH_GET_ERROR			EthGetPacket Error for "%s"
+
 
 

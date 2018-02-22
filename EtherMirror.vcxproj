@@ -19,14 +19,16 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="EMSvc.h" />
     <ClInclude Include="project.h" />
     <ClInclude Include="project_types.h" />
-    <ClInclude Include="secapp.h" />
+    <ClInclude Include="EtherMirror.h" />
     <ClInclude Include="seclib\seclib_src\seclib.h" />
     <ClInclude Include="temp.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="secapp.c" />
+    <ClCompile Include="EMSvc.c" />
+    <ClCompile Include="EtherMirror.c" />
     <ClCompile Include="seclib\seclib_src\seclib.c" />
     <ClCompile Include="seclib\seclib_src\srclib_win32.cpp">
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsCpp</CompileAs>
@@ -44,7 +46,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{003891C0-0D35-4C1C-B7F9-215B118482D8}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>secapp</RootNamespace>
+    <RootNamespace>EtherMirror</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -98,25 +100,25 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <IntDir>$(SolutionDir)obj\obj\$(PlatformName)_$(Configuration)\</IntDir>
-    <TargetName>secapp_$(PlatformShortName)</TargetName>
+    <TargetName>ethermirror_$(PlatformShortName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <IntDir>$(SolutionDir)obj\obj\$(PlatformName)_$(Configuration)\</IntDir>
-    <TargetName>secapp_$(PlatformShortName)</TargetName>
+    <TargetName>ethermirror_$(PlatformShortName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <IntDir>$(SolutionDir)obj\obj\$(PlatformName)_$(Configuration)\</IntDir>
-    <TargetName>secapp_$(PlatformShortName)</TargetName>
+    <TargetName>ethermirror_$(PlatformShortName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)bin\</OutDir>
     <IntDir>$(SolutionDir)obj\obj\$(PlatformName)_$(Configuration)\</IntDir>
-    <TargetName>secapp_$(PlatformShortName)</TargetName>
+    <TargetName>ethermirror_$(PlatformShortName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
