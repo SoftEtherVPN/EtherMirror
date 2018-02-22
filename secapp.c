@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 	{
 		char *second_arg = argv[1];
 
-		if (StrCmpi(second_arg, "start") == 0 || StrCmpi(second_arg, "stop") == 0 ||
+		if (StrCmpi(second_arg, "start") == 0 || StrCmpi(second_arg, "stop") == 0 || StrCmpi(second_arg, "execsvc") == 0 || StrCmpi(second_arg, "help") == 0 ||
 			(second_arg[0] == '/' && StrCmpi(second_arg, "/memcheck") != 0))
 		{
 			// service mode
