@@ -50,7 +50,9 @@ void test(UINT num, char **arg)
 {
 	if (true)
 	{
-		Print("Test!\n");
+		Print("Test! %u\n", IsX64());
+
+		Temp_TestFunction("Nekosan");
 		return;
 	}
 }
