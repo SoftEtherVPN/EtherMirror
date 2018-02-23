@@ -10,6 +10,9 @@
 #include <seclib.h>
 #include "project.h"
 
+static UCHAR broadcast[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+
 // Recv Thread
 void EmRecvThread(THREAD *thread, void *param)
 {
@@ -74,37 +77,47 @@ void EmRecvThread(THREAD *thread, void *param)
 				else if (size == 0)
 				{
 					// Wait for next packet
-					Select(NULL, 100, cancel, NULL);
+					Select(NULL, 10, cancel, NULL);
 					break;
 				}
 				else
 				{
-					// Packet received. Check it.
-					PKT *pkt = EmParsePacket(m, data, size);
-
-					if (pkt != NULL)
+					if (size >= 14 && Cmp(data + 6, m->Config->OutputMac, 6) != 0)
 					{
-						// Insert to the queue.
-						if (q == NULL)
-						{
-							q = NewQueueFast();
-						}
+						// Packet received. Check it.
+						PKT *pkt = EmParsePacket(m, data, size);
 
-//						Debug("%u\n", size);
-						if (q->num_item < EM_MAX_QUEUE_SIZE)
+						if (pkt != NULL)
 						{
-							InsertQueue(q, pkt);
+							// Insert to the queue.
+							if (q == NULL)
+							{
+								q = NewQueueFast();
+							}
+
+							//						Debug("%u\n", size);
+							if (q->num_item < EM_MAX_QUEUE_SIZE)
+							{
+								InsertQueue(q, pkt);
+							}
+							else
+							{
+								FreePacketWithData(pkt);
+							}
 						}
-						else
-						{
-							FreePacketWithData(pkt);
-						}
+					}
+					else
+					{
+						//Debug("Self: %u\n", size);
+						Free(data);
 					}
 				}
 			}
 
 			if (q != NULL)
 			{
+				UINT num_inserted_packets = 0;
+
 				LockQueue(m->SendQueue);
 				{
 					PKT *pkt;
@@ -114,6 +127,8 @@ void EmRecvThread(THREAD *thread, void *param)
 						if (m->SendQueue->num_item < EM_MAX_QUEUE_SIZE)
 						{
 							InsertQueue(m->SendQueue, pkt);
+
+							num_inserted_packets++;
 						}
 						else
 						{
@@ -124,6 +139,29 @@ void EmRecvThread(THREAD *thread, void *param)
 				UnlockQueue(m->SendQueue);
 
 				ReleaseQueue(q);
+
+				if (num_inserted_packets != 0)
+				{
+					CANCEL *cancel = NULL;
+
+					Lock(m->Lock);
+					{
+						cancel = m->SendCancel;
+
+						if (cancel != NULL)
+						{
+							AddRef(cancel->ref);
+						}
+					}
+					Unlock(m->Lock);
+
+					if (cancel != NULL)
+					{
+						Cancel(cancel);
+
+						ReleaseCancel(cancel);
+					}
+				}
 			}
 		}
 	}
@@ -148,7 +186,7 @@ PKT *EmParsePacket(EM *m, UCHAR *data, UINT size)
 	{
 		goto LABEL_ERROR;
 	}
-
+	
 	if (p->TypeL3 != L3_IPV4)
 	{
 		goto LABEL_ERROR;
@@ -168,7 +206,6 @@ void EmSendThread(THREAD *thread, void *param)
 	ETH *eth = NULL;
 	UINT num_open_fail = 0;
 	char if_name[MAX_SIZE];
-	QUEUE *q;
 	if (thread == NULL || param == NULL)
 	{
 		return;
@@ -179,6 +216,8 @@ void EmSendThread(THREAD *thread, void *param)
 
 	while (m->Halt == false)
 	{
+		UINT64 now = Tick64();
+
 		if (eth == NULL)
 		{
 			eth = OpenEth(if_name, false, false, NULL);
@@ -207,6 +246,7 @@ void EmSendThread(THREAD *thread, void *param)
 		{
 			QUEUE *q = NewQueueFast();
 
+			// Packet sender (from the mirror queue)
 			LockQueue(m->SendQueue);
 			{
 				PKT *pkt;
@@ -217,9 +257,169 @@ void EmSendThread(THREAD *thread, void *param)
 			}
 			UnlockQueue(m->SendQueue);
 
-			ReleaseQueue(q);
+			// ARP request sender
+			if (now >= m->next_arp_send_tick || m->next_arp_send_tick == 0)
+			{
+				ARPV4_HEADER arp;
+				UINT i;
+
+				for (i = 0;i < m->Config->NumTargetIp;i++)
+				{
+					UCHAR *buf;
+					MAC_HEADER *mac_header;
+					IP target_ip;
+
+					Zero(&arp, sizeof(arp));
+					
+					CopyIP(&target_ip, &m->Config->TargetIpList[i]);
+
+					// Build an ARP header
+					arp.HardwareType = Endian16(ARP_HARDWARE_TYPE_ETHERNET);
+					arp.ProtocolType = Endian16(MAC_PROTO_IPV4);
+					arp.HardwareSize = 6;
+					arp.ProtocolSize = 4;
+					arp.Operation = Endian16(ARP_OPERATION_REQUEST);
+					Copy(arp.SrcAddress, m->Config->OutputMac, 6);
+					arp.SrcIP = IPToUINT(&m->Config->OutputArpSrc);
+					Zero(&arp.TargetAddress, 6);
+					arp.TargetIP = IPToUINT(&target_ip);
+
+					// Buffer creation
+					buf = Malloc(MAC_HEADER_SIZE + sizeof(arp));
+
+					// MAC header
+					mac_header = (MAC_HEADER *)&buf[0];
+					Copy(mac_header->DestAddress, broadcast, 6);
+					Copy(mac_header->SrcAddress, m->Config->OutputMac, 6);
+					mac_header->Protocol = Endian16(MAC_PROTO_ARPV4);
+
+					// Copy data
+					Copy(&buf[sizeof(MAC_HEADER)], &arp, sizeof(arp));
+
+					EthPutPacket(eth, Clone(buf, MAC_HEADER_SIZE + sizeof(arp)), MAC_HEADER_SIZE + sizeof(arp));
+
+					Free(buf);
+				}
+
+				m->next_arp_send_tick = now + (UINT64)m->Config->ArpInterval;
+			}
+
+			if (q != NULL)
+			{
+				PKT *pkt;
+				UINT num = q->num_item;
+				UCHAR **packet_array = ZeroMalloc(sizeof(void *) * num);
+				UINT *packet_sizes = ZeroMalloc(sizeof(UINT) * num);
+				UINT i = 0;
+
+				while (pkt = GetNext(q))
+				{
+					UINT j;
+
+					for (j = 0;j < m->Config->NumTargetIp;j++)
+					{
+						if (IsZero(m->Config->TargetMacList[j], 6) == false &&
+							now <= (m->Config->TargetMacLastSeen[j] + (UINT64)m->Config->ArpTimeout))
+						{
+							UCHAR *data = Clone(pkt->PacketData, MAX(pkt->PacketSize, 14));
+							UINT size = pkt->PacketSize;
+
+							Copy(data, m->Config->TargetMacList[j], 6);
+							Copy(data + 6, m->Config->OutputMac, 6);
+
+							packet_array[i] = data;
+							packet_sizes[i] = size;
+							i++;
+						}
+					}
+
+					FreePacketWithData(pkt);
+				}
+
+				EthPutPackets(eth, num, packet_array, packet_sizes);
+
+				Free(packet_array);
+				Free(packet_sizes);
+
+				ReleaseQueue(q);
+			}
+
+			// Packet Receiver (for ARP response)
+			while (true)
+			{
+				UCHAR *data;
+				UINT size = EthGetPacket(eth, &data);
+				if (size == INFINITE)
+				{
+					// Interface error
+					EmLog(m, "EMLOG_ETH_GET_ERROR", if_name);
+
+					CloseEth(eth);
+					eth = NULL;
+					num_open_fail = 0;
+
+					Lock(m->Lock);
+					{
+						ReleaseCancel(m->SendCancel);
+						m->SendCancel = NULL;
+					}
+					Unlock(m->Lock);
+
+					break;
+				}
+				else if (size == 0)
+				{
+					// Wait for next packet
+					Select(NULL, 10, m->SendCancel, NULL);
+					break;
+				}
+				else
+				{
+					if (size >= 15)
+					{
+						if (Cmp(data, m->Config->OutputMac, 6) == 0)
+						{
+							PKT *rp = ParsePacket(data, size);
+
+							if (rp != NULL)
+							{
+								if (rp->TypeL3 == L3_ARPV4 &&
+									Endian16(rp->L3.ARPv4Header->Operation) == ARP_OPERATION_RESPONSE &&
+									Endian16(rp->L3.ARPv4Header->HardwareType) == ARP_HARDWARE_TYPE_ETHERNET &&
+									Endian16(rp->L3.ARPv4Header->ProtocolType) == MAC_PROTO_IPV4 &&
+									rp->L3.ARPv4Header->HardwareSize == 6 &&
+									rp->L3.ARPv4Header->ProtocolSize == 4 &&
+									IsZero(&rp->L3.ARPv4Header->SrcAddress, 6) == false &&
+									IsMacBroadcast(rp->L3.ARPv4Header->SrcAddress) == false)
+								{
+									UINT i;
+
+									for (i = 0;i < m->Config->NumTargetIp;i++)
+									{
+										if (IPToUINT(&m->Config->TargetIpList[i]) == rp->L3.ARPv4Header->SrcIP)
+										{
+											Copy(m->Config->TargetMacList[i], rp->L3.ARPv4Header->SrcAddress, 6);
+											m->Config->TargetMacLastSeen[i] = now;
+										}
+									}
+								}
+
+								FreePacket(rp);
+							}
+						}
+					}
+					Free(data);
+				}
+			}
 		}
 	}
+
+	Lock(m->Lock);
+	{
+		ReleaseCancel(m->SendCancel);
+		m->SendCancel = NULL;
+	}
+	Unlock(m->Lock);
 
 	CloseEth(eth);
 	ReleaseCancel(m->SendCancel);

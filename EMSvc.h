@@ -17,6 +17,8 @@ struct EM_CONFIG
 	IP OutputArpSrc;
 	UINT NumTargetIp;
 	IP TargetIpList[EM_MAX_TARGET_IP];
+	UCHAR TargetMacList[EM_MAX_TARGET_IP][6];
+	UINT64 TargetMacLastSeen[EM_MAX_TARGET_IP];
 	UINT ArpInterval;
 	UINT ArpTimeout;
 };
@@ -31,6 +33,7 @@ struct EM
 	QUEUE *SendQueue;
 	LOCK *Lock;
 	CANCEL *SendCancel;
+	UINT64 next_arp_send_tick;
 };
 
 // Functions
